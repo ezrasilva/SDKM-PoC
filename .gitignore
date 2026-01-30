@@ -1,0 +1,14 @@
+scripts/certs/
+metrics/resultados_benchmark*
+resultados_benchmark*
+scripts/__pycache__/*
+figura*
+scripts/orchestrator_auth.key
+scripts/orchestrator_auth.pub
+sockets/bob/charon.pid
+sockets/bob/charon.pid
+scripts/__pycache__/hybrid_key_gen.cpython-310.pyc
+scripts/__pycache__/hybrid_key_gen.cpython-310.pyc
+/venv
+**/__pycache__/
+*.pdf

@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  alice:
+    image: strongx509/strongswan
+    container_name: baseline_alice
+    privileged: true
+    volumes:
+      - ./alice:/etc/swanctl/conf.d
+    networks:
+      transport_net:
+        ipv4_address: 192.168.20.2
+    entrypoint: []
+    command: tail -f /dev/null
+
+  bob:
+    image: strongx509/strongswan
+    container_name: baseline_bob
+    privileged: true
+    volumes:
+      - ./bob:/etc/swanctl/conf.d
+    networks:
+      transport_net:
+        ipv4_address: 192.168.20.3
+    entrypoint: []
+    command: tail -f /dev/null
+
+  carol:
+    image: strongx509/strongswan
+    container_name: baseline_carol
+    privileged: true
+    volumes:
+      - ./carol:/etc/swanctl/conf.d
+    networks:
+      transport_net:
+        ipv4_address: 192.168.20.4
+    entrypoint: []
+    command: tail -f /dev/null
+
+  dave:
+    image: strongx509/strongswan
+    container_name: baseline_dave
+    privileged: true
+    volumes:
+      - ./dave:/etc/swanctl/conf.d
+    networks:
+      transport_net:
+        ipv4_address: 192.168.20.5
+    entrypoint: []
+    command: tail -f /dev/null
+
+networks:
+  transport_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.20.0/24

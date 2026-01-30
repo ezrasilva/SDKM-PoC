@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  alice:
+    image: strongx509/strongswan
+    container_name: base_alice
+    privileged: true
+    sysctls:
+      - net.ipv4.ip_forward=1
+    volumes:
+      - ./alice/swanctl.conf:/etc/swanctl/swanctl.conf
+    entrypoint: []
+    # COMANDO BLINDADO: Tenta apk, se falhar tenta apt, mas NUNCA mata o container
+    command: >
+      /bin/sh -c "
+      echo '--- INICIANDO SETUP ---';
+      (apk add --no-cache iperf3 iproute2 || (apt-get update && apt-get install -y iperf3 iproute2) || echo 'Aviso: Instalação manual falhou, o script Python tentará novamente.') &&
+      echo '--- INICIANDO CHARON ---';
+      /usr/lib/ipsec/charon &
+      sleep 5 &&
+      echo '--- CARREGANDO CONF ---';
+      swanctl --load-all || echo 'Erro ao carregar swanctl, verifique logs';
+      echo '--- CONTAINER PRONTO ---';
+      tail -f /dev/null
+      "
+    networks:
+      transport_net:
+        ipv4_address: 192.168.100.10
+
+  bob:
+    image: strongx509/strongswan
+    container_name: base_bob
+    privileged: true
+    sysctls:
+      - net.ipv4.ip_forward=1
+    volumes:
+      - ./bob/swanctl.conf:/etc/swanctl/swanctl.conf
+    entrypoint: []
+    command: >
+      /bin/sh -c "
+      (apk add --no-cache iperf3 iproute2 || (apt-get update && apt-get install -y iperf3 iproute2) || echo 'Aviso: Instalação falhou') &&
+      /usr/lib/ipsec/charon &
+      sleep 5 &&
+      swanctl --load-all || true &&
+      tail -f /dev/null
+      "
+    networks:
+      transport_net:
+        ipv4_address: 192.168.100.11
+
+  carol:
+    image: strongx509/strongswan
+    container_name: base_carol
+    privileged: true
+    sysctls:
+      - net.ipv4.ip_forward=1
+    volumes:
+      - ./carol/swanctl.conf:/etc/swanctl/swanctl.conf
+    entrypoint: []
+    command: >
+      /bin/sh -c "
+      (apk add --no-cache iperf3 iproute2 || (apt-get update && apt-get install -y iperf3 iproute2) || echo 'Aviso: Instalação falhou') &&
+      /usr/lib/ipsec/charon &
+      sleep 5 &&
+      swanctl --load-all || true &&
+      tail -f /dev/null
+      "
+    networks:
+      transport_net:
+        ipv4_address: 192.168.100.12
+
+  dave:
+    image: strongx509/strongswan
+    container_name: base_dave
+    privileged: true
+    sysctls:
+      - net.ipv4.ip_forward=1
+    volumes:
+      - ./dave/swanctl.conf:/etc/swanctl/swanctl.conf
+    entrypoint: []
+    command: >
+      /bin/sh -c "
+      (apk add --no-cache iperf3 iproute2 || (apt-get update && apt-get install -y iperf3 iproute2) || echo 'Aviso: Instalação falhou') &&
+      /usr/lib/ipsec/charon &
+      sleep 5 &&
+      swanctl --load-all || true &&
+      tail -f /dev/null
+      "
+    networks:
+      transport_net:
+        ipv4_address: 192.168.100.13
+
+networks:
+  transport_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.100.0/24
