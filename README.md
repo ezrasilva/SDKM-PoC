@@ -1,161 +1,38 @@
-<<<<<<< HEAD
-# SDKM-PoC
-# SDKM-PoC
+# SDKM-PoC: Gestão de Chaves Quânticas Definida por Software
 
-# 🔐 Quantum VPN - Key Injection Daemon
+## Descrição
+Este repositório contém uma Prova de Conceito (PoC) para um sistema de gestão de chaves híbrido que integra Criptografia Pós-Quântica (PQC) e Distribuição de Chaves Quânticas (QKD) para proteger comunicações via VPN IPsec. A arquitetura utiliza uma abordagem de Redes Definidas por Software (SDN) para orquestrar a segurança de múltiplos nós de forma dinâmica.
 
-Sistema de daemon HTTP para injeção de chaves híbridas (PQC + QKD) em túneis IPsec/StrongSwan, totalmente dockerizado.
+## Cenários de Teste
+O projeto está estruturado para comparar dois cenários distintos através de uma infraestrutura de testes automatizada:
 
-## 🚀 Quick Start
+### 1. Cenário Baseline (Sem SDKM)
+Representa a operação padrão de uma VPN IPsec sem a intervenção da camada de gestão quântica.
+* **Infraestrutura**: Utiliza contentores com o prefixo `base_` (ex: `base_alice`) definidos num ambiente isolado.
+* **Configuração**: Os nós utilizam imagens padrão do StrongSwan com configurações de túnel estáticas carregadas via `swanctl.conf`.
+* **Execução**: Ativado no controlador de automação através da flag `--baseline`.
 
-**Executa o fluxo COMPLETO automaticamente:**
+### 2. Cenário com SDKM (Modo SDN/Quantum)
+Introduz a orquestração dinâmica de chaves híbridas que combinam segurança pós-quântica e quântica.
+* **Controlador SDN**: O orquestrador gera chaves híbridas combinando o algoritmo ML-KEM-768 com chaves QKD obtidas via API compatível com o padrão ETSI GS QKD 014.
+* **Injeção Dinâmica**: Os agentes VPN nos nós recebem estas chaves através de uma API segura e injetam-nas no daemon Charon em tempo real usando o protocolo VICI.
+* **Segurança do Plano de Controlo**: Todas as mensagens de gestão entre o controlador e os agentes são assinadas com ML-DSA-65, protegidas por encriptação de envelope e validadas contra ataques de replay.
 
-```bash
-make docker-full-workflow
-```
+## Metodologia de Comparação
+Para garantir resultados precisos, ambos os cenários são submetidos às mesmas condições experimentais:
+* **Emulação de Rede**: Aplicação de perfis de rede WAN (como `wan-fiber`) que simulam latência, jitter e perda de pacotes via `tc/netem`.
+* **Bateria de Testes**: Execução automatizada de medições de débito TCP (throughput), estabilidade de vídeo (UDP jitter) e transferências de ficheiros de grande escala (ex: 500MB).
+* **Métricas de Recursos**: Monitorização contínua do consumo de CPU e memória de todos os contentores para avaliar o impacto computacional da solução SDKM.
 
-Isso faz:
-1. ✅ Sobe containers Alice, Bob, daemons e orchestrador
-2. ✅ Executa `swanctl --load-all` (carrega configurações)
-3. ✅ Executa `swanctl --initiate` (inicia túnel)
-4. ✅ Aguarda túnel estar ESTABLISHED
-5. ✅ Inicia orchestrador para injetar chaves e fazer rekeys
+## Arquitetura Técnica
+* **Nós de Rede**: Contentores baseados em Ubuntu 22.04 equipados com StrongSwan e agentes API Flask.
+* **Algoritmo de Mixagem**: Utilização do protocolo HKDF-SHA256 para derivar uma chave final de 256 bits a partir de material PQC e QKD.
+* **Componentes Core**:
+    * `liboqs`: Biblioteca para algoritmos criptográficos pós-quânticos.
+    * `strongSwan`: Implementação de VPN IPsec com suporte a VICI.
+    * `iperf3`: Ferramenta principal para geração de tráfego e medição de performance.
 
-Ou de forma **manual/controlada**:
-
-```bash
-docker-compose up -d alice bob daemon-alice daemon-bob
-docker exec alice swanctl --load-all && docker exec bob swanctl --load-all
-docker exec alice swanctl --initiate --child net-traffic
-docker-compose up orchestrator  # Aguarda tunnel ativo automaticamente
-```
-
-## 📋 Fluxo de Operação
-
-```
-1. Containers iniciam (Alice, Bob, Daemons)
-   ↓
-2. swanctl --load-all carrega configurações
-   ↓
-3. swanctl --initiate inicia negociação IKE
-   ↓
-4. Tunnel estabelecido (IKE_SA + CHILD_SA)
-   ↓
-5. Orquestrador AGUARDA tunnel estar ativo
-   ↓
-6. Orquestrador injeta chaves híbridas (PQC + QKD)
-   ↓
-7. Daemons injetam no socket Unix do StrongSwan
-   ↓
-8. Rekeys a cada 30s com novas chaves híbridas
-   ↓
-9. Verifica continuamente se tunnel permanece ativo
-```
-
-📖 **Leia a documentação completa:** [docs/ENTENDIMENTO_DO_FLUXO.md](docs/ENTENDIMENTO_DO_FLUXO.md)
-
-## 📋 Comandos Principais
-
-| Comando | Descrição |
-|---------|-----------|
-| `make docker-full-workflow` | **RECOMENDADO**: Executa tudo automaticamente |
-| `make docker-up` | Iniciar containers |
-| `make docker-down` | Parar containers |
-| `make docker-tunnel-activate` | Ativar túnel manualmente |
-| `make docker-tunnel-status` | Ver status do túnel |
-| `make docker-health` | Verificar saúde dos daemons |
-| `make help` | Lista todos os comandos |
-
-## 📁 Estrutura do Projeto
-
-```
-quantum_vpn/
-├── docker-compose.yml          # Orquestração dos 6 containers
-├── Dockerfile                  # Imagem base com StrongSwan
-├── Makefile                    # Comandos (25+)
-├── requirements.txt            # Dependências Python
-│
-├── scripts/                    # Scripts Python principais
-│   ├── key_injection_daemon.py (HTTP server)
-│   ├── orchestrator_with_daemon.py (coordena fluxo)
-│   ├── hybrid_key_gen.py (mistura PQC+QKD)
-│   └── test_daemon.py
-│
-├── scripts_helper/             # Scripts auxiliares (bash)
-│   ├── full_workflow.sh (fluxo completo automatizado)
-│   ├── activate_tunnel.sh
-│   ├── health_check_docker.sh
-│   └── ...
-│
-├── docs/                       # Documentação detalhada
-│   ├── ENTENDIMENTO_DO_FLUXO.md (este é o importante!)
-│   ├── FLUXO_CORRETO.md
-│   ├── README_DAEMON.md
-│   └── ...
-│
-├── config/, alice/, bob/, sockets/, metrics/
-```
-
-## 🔍 Status Atual
-
-✅ **Túnel VPN**: Totalmente funcional, aguarda ser iniciado  
-✅ **Daemons**: Alice (8000) e Bob (8001), aguardando requisições  
-✅ **Orquestrador**: Aguarda túnel ativo para iniciar injeção de chaves  
-✅ **Fluxo**: Implementado corretamente com espera e verificação contínua
-
-## 📚 Documentação
-
-Veja a documentação completa em [docs/README_DAEMON.md](docs/README_DAEMON.md)
-
-## 📊 Serviços Docker
-
-| Serviço | IP | Porta | Status |
-|---------|----|----|--------|
-| alice | 10.100.1.10 | - | ✅ |
-| bob | 10.100.2.10 | - | ✅ |
-| daemon-alice | 10.5.0.10 | 8000 | ✅ |
-| daemon-bob | 10.5.0.11 | 8001 | ✅ |
-| orchestrator | 10.5.0.99 | - | ✅ |
-
-## 🎯 Workflow Típico
-
-```bash
-# 1. Setup inicial
-make docker-build
-make docker-up
-
-# 2. Validar
-make validate
-
-# 3. Ativar túnel
-make docker-tunnel-activate
-
-# 4. Monitorar
-make docker-logs
-
-# 5. Testar injeção de chaves
-make docker-run-orchestrator
-
-# 6. Parar
-make docker-down
-```
-
-## 🐛 Troubleshooting
-
-```bash
-# Ver logs detalhados
-make docker-logs
-
-# Debug de um container específico
-docker exec -it alice bash
-
-# Recriar sistema
-make docker-clean
-make docker-build
-make docker-up
-```
-
----
-
-**Desenvolvido para Quantum VPN - Post-Quantum Cryptography**
->>>>>>> 6022eee (terminado)
+## Fluxo de Operação
+1. **Inicialização**: O script `entrypoint.sh` configura o ambiente de rede e inicia os processos críticos (Charon e Agente VPN).
+2. **Ciclo SDN**: O controlador SDN executa ciclos periódicos onde solicita chaves QKD, gera segredos PQC e coordena a atualização dos túneis nos nós.
+3. **Execução de Experiências**: O `automation_controller.py` gere o ciclo de vida dos testes, aplicando condições de rede e arquivando os resultados em formatos CSV e JSON para análise.
